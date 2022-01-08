@@ -153,8 +153,8 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
 
 
 def main():
-    env = BreakoutEnv(5, time_coef=0.05)
-    # env = BreakoutMultiStepExecutingEnvironmentWrapper(5, 0.05, no_steps=8)
+    #env = BreakoutEnv(5, time_coef=0.05)
+    env = BreakoutMultiStepExecutingEnvironmentWrapper(5, 0.05, no_steps=8)
     deep_q_learning(env, config.replay_memory_size, config.no_steps, config.gamma)
     #dqn = DQN(env.get_observation_size(), env.get_action_size())
     #dqn.load_state_dict(torch.load('dqn.model'))
