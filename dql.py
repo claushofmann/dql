@@ -19,7 +19,14 @@ config = wandb.config
 config.lr = 0.00025
 config.replay_memory_size = 1000000
 config.no_steps = 10000000
+config.min_replay_steps = 50000
 config.gamma = 0.99
+config.no_steps = 5
+config.min_epsilon = 0.1
+config.clip = 1.
+config.batch_size = 128  # TODO 32?#
+config.breakout.size = 5
+config.breakout.time_coef = 0.05
 
 
 class DQN(nn.Module):
@@ -90,6 +97,7 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
     epsilon = 1
 
     current_steps = 0
+    last_saved = 0
 
     while True:
         observation = env.reset().get_observation()
@@ -99,9 +107,9 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
         rewards = []
         losses = []
         while not done:
-            if epsilon > 0.1 and len(replay_memory) > 50000:
+            if epsilon > config.min_epsilon and len(replay_memory) > config.min_replay_steps:
                 epsilon -= 0.9 / total_steps
-            if np.random.uniform(0,1) < epsilon:
+            if np.random.uniform(0, 1) < epsilon:
                 # select random action
                 selected_action = torch.from_numpy(np.random.choice(action_size, [observation.shape[0]]))
             else:
@@ -122,7 +130,7 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
                 dqn_old = copy.deepcopy(dqn)
 
             if len(replay_memory) > 50000:
-                records = replay_memory.sample_records(128)  # TODO 32?
+                records = replay_memory.sample_records(config.batch_size)
                 old_observations = torch.cat([record.old_observation for record in records], dim=0).detach().to(device)
                 new_observations = torch.cat([record.new_observation for record in records], dim=0).detach().to(device)
                 actions = torch.cat([record.action for record in records], dim=0).long().detach().to(device)
@@ -136,14 +144,13 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
 
                 loss = criterion(old_q_values, target.detach())
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(dqn.parameters(), 1.)
+                torch.nn.utils.clip_grad_norm_(dqn.parameters(), config.clip)
                 optimizer.step()
                 losses.append(loss.cpu().detach())
 
         print('Episode reward: {}, loss: {}, Epsilon: {}'.format(np.sum(rewards), np.mean(losses), epsilon))
         wandb.log({'reward': np.sum(rewards), 'loss': np.mean(losses), 'epsilon': epsilon})
 
-        last_saved = 0
         if total_steps - last_saved > 50000:
             torch.save(dqn.state_dict(), 'dqn.model')
             last_saved = total_steps
@@ -153,8 +160,10 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
 
 
 def main():
-    env = BreakoutEnv(5, time_coef=0.05)
-    # env = BreakoutMultiStepExecutingEnvironmentWrapper(5, 0.05, no_steps=8)
+    if config.no_steps == 1:
+        env = BreakoutEnv(config.breakout.size, time_coef=config.breakout.time_coef)
+    else:
+        env = BreakoutMultiStepExecutingEnvironmentWrapper(config.breakout.size, config.breakout.time_coef, no_steps=config.no_steps)
     deep_q_learning(env, config.replay_memory_size, config.no_steps, config.gamma)
     #dqn = DQN(env.get_observation_size(), env.get_action_size())
     #dqn.load_state_dict(torch.load('dqn.model'))
