@@ -24,3 +24,8 @@ Weights and Biases is a great tool for experiment tracking 📈. If you wanna us
 2. Set `use_wandb` in `dql.py` to `False`
 3. Start `dql.py`. 
 4. To create some rendered rollouts of the game after training, you can execute `dql.py play`
+
+
+### While training is running
+
+If you're waiting for a model to train, just let time pass while playing some Breakout. Just run `play.py`.
