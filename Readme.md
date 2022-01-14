@@ -1,7 +1,7 @@
 # Learn to play Breakout using Deep Q-Learning
 
 This is an implemetation of Deep Q-Learning for the game breakout. See also this classical reinforcement learning paper
-for more info: ![Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf).
+for more info: [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf).
 
 This repository also comes with a full implementation of the breakout game with rendering done using Matplotlib.
 
