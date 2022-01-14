@@ -2,17 +2,12 @@ import torch
 from torch import nn
 import copy
 import numpy as np
-from env.env import BreakoutEnv, MultiStepExecutingEvironmentWrapper, BreakoutMultiStepExecutingEnvironmentWrapper
+from env.env import BreakoutEnv, BreakoutMultiStepExecutingEnvironmentWrapper
 from functools import reduce
 from video_renderer import VideoTrajectoryRenderer
 from env.renderer import BreakoutRenderer
 import wandb
-
-with open('wandb-key.txt') as f:
-    key = str(f.read())
-
-wandb.login(key=key)
-wandb.init(project='q-learning', entity='claushofmann')
+import sys
 
 config = wandb.config
 
@@ -25,8 +20,8 @@ config.no_steps = 5
 config.min_epsilon = 0.1
 config.clip = 1.
 config.batch_size = 128  # TODO 32?#
-config.breakout.size = 5
-config.breakout.time_coef = 0.05
+config.breakout_size = 5
+config.breakout_time_coef = 0.05
 
 
 class DQN(nn.Module):
@@ -153,21 +148,32 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
 
         if total_steps - last_saved > 50000:
             torch.save(dqn.state_dict(), 'dqn.model')
+            wandb.save('dqn.model')
             last_saved = total_steps
 
         if current_steps >= total_steps:
             break
 
 
-def main():
+def train():
+    with open('wandb-key.txt') as f:
+        key = str(f.read())
+
+    wandb.login(key=key)
+    wandb.init(project='q-learning', entity='claushofmann')
+
     if config.no_steps == 1:
-        env = BreakoutEnv(config.breakout.size, time_coef=config.breakout.time_coef)
+        env = BreakoutEnv(config.breakout_size, time_coef=config.breakout_time_coef)
     else:
-        env = BreakoutMultiStepExecutingEnvironmentWrapper(config.breakout.size, config.breakout.time_coef, no_steps=config.no_steps)
+        env = BreakoutMultiStepExecutingEnvironmentWrapper(config.breakout_size, config.breakout_time_coef, no_steps=config.no_steps)
     deep_q_learning(env, config.replay_memory_size, config.no_steps, config.gamma)
-    #dqn = DQN(env.get_observation_size(), env.get_action_size())
-    #dqn.load_state_dict(torch.load('dqn.model'))
-    #render_episode(env, dqn, 0.1, fps=30)
+
+
+def play():
+    env = BreakoutEnv(config.breakout.size, time_coef=config.breakout.time_coef)
+    dqn = DQN(env.get_observation_size(), env.get_action_size())
+    dqn.load_state_dict(torch.load('dqn.model'))
+    render_episode(env, dqn, 0.1, fps=30)
 
 
 def render_episode(env: BreakoutEnv, dqn, epsilon, fps=30):
@@ -191,6 +197,8 @@ def render_episode(env: BreakoutEnv, dqn, epsilon, fps=30):
 
 
 if __name__ == '__main__':
-    main()
-
+    if sys.argv[1] == 'play':
+        play()
+    else:
+        train()
 
