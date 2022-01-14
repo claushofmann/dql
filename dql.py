@@ -9,17 +9,19 @@ from env.renderer import BreakoutRenderer
 import wandb
 import sys
 
+use_wandb = True
+
 config = wandb.config
 
-config.lr = 0.00025
+config.lr = 0.00003
 config.replay_memory_size = 1000000
-config.no_steps = 10000000
+config.total_steps = 10000000
 config.min_replay_steps = 50000
 config.gamma = 0.99
-config.no_steps = 5
+config.no_steps = 9
 config.min_epsilon = 0.1
-config.clip = 1.
-config.batch_size = 128  # TODO 32?#
+config.clip = 0.5
+config.batch_size = 32
 config.breakout_size = 5
 config.breakout_time_coef = 0.05
 
@@ -80,12 +82,16 @@ class ReplayMemory:
 
 
 def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
-    device = torch.device('cuda:0')
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+    else:
+        device = torch.device('cpu')
     replay_memory = ReplayMemory(replay_memory_size)
     action_size = env.get_action_size()
     observation_size = env.get_observation_size()
     dqn = DQN(observation_size, action_size).to(device)
-    wandb.watch(dqn)
+    if use_wandb:
+        wandb.watch(dqn)
     dqn_old = copy.deepcopy(dqn)
     optimizer = torch.optim.RMSprop(dqn.parameters(), config.lr)
     criterion = nn.MSELoss()
@@ -103,7 +109,7 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
         losses = []
         while not done:
             if epsilon > config.min_epsilon and len(replay_memory) > config.min_replay_steps:
-                epsilon -= 0.9 / total_steps
+                epsilon -= 0.9 / config.total_steps
             if np.random.uniform(0, 1) < epsilon:
                 # select random action
                 selected_action = torch.from_numpy(np.random.choice(action_size, [observation.shape[0]]))
@@ -144,14 +150,14 @@ def deep_q_learning(env:BreakoutEnv, replay_memory_size, total_steps, gamma):
                 losses.append(loss.cpu().detach())
 
         print('Episode reward: {}, loss: {}, Epsilon: {}'.format(np.sum(rewards), np.mean(losses), epsilon))
-        wandb.log({'reward': np.sum(rewards), 'loss': np.mean(losses), 'epsilon': epsilon})
+        if use_wandb:
+            wandb.log({'reward': np.sum(rewards), 'loss': np.mean(losses), 'epsilon': epsilon})
 
-        if total_steps - last_saved > 50000:
+        if config.total_steps - last_saved > 50000:
             torch.save(dqn.state_dict(), 'dqn.model')
-            wandb.save('dqn.model')
-            last_saved = total_steps
+            last_saved = config.total_steps
 
-        if current_steps >= total_steps:
+        if current_steps >= config.total_steps:
             break
 
 
@@ -159,8 +165,9 @@ def train():
     with open('wandb-key.txt') as f:
         key = str(f.read())
 
-    wandb.login(key=key)
-    wandb.init(project='q-learning', entity='claushofmann')
+    if use_wandb:
+        wandb.login(key=key)
+        wandb.init(project='q-learning', entity='claushofmann')
 
     if config.no_steps == 1:
         env = BreakoutEnv(config.breakout_size, time_coef=config.breakout_time_coef)
@@ -170,7 +177,7 @@ def train():
 
 
 def play():
-    env = BreakoutEnv(config.breakout.size, time_coef=config.breakout.time_coef)
+    env = BreakoutEnv(config.breakout_size, time_coef=config.breakout_time_coef)
     dqn = DQN(env.get_observation_size(), env.get_action_size())
     dqn.load_state_dict(torch.load('dqn.model'))
     render_episode(env, dqn, 0.1, fps=30)
@@ -197,8 +204,7 @@ def render_episode(env: BreakoutEnv, dqn, epsilon, fps=30):
 
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'play':
+    if len(sys.argv) > 1 and sys.argv[1] == 'play':
         play()
     else:
         train()
-
