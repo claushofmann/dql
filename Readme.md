@@ -16,7 +16,7 @@ Weights and Biases is a great tool for experiment tracking 📈. If you wanna us
 2. Get your API key, create a file wandb-key.txt
 3. Make sure PyTorch, Numpy, matplotlib, weights&biases and ffmpeg are installed in your environment
 4. Start `dql.py`. 
-5. Do create some rendered rollouts of the game after training, you can execute `dql.py play`
+5. To create some rendered rollouts of the game after training, you can execute `dql.py play`
 
 ### Without Weights and Biases
 
